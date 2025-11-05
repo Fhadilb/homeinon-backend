@@ -1,0 +1,21 @@
+{
+  "name": "homeinon-backend",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "description": "",
+  "main": "index.js",
+"scripts": {
+  "start": "node server.js"
+},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.6.1",
+    "fastify-cors": "^6.0.3",
+    "pg": "^8.16.3",
+    "pg-promise": "^12.2.0"
+  }
+}
