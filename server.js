@@ -1,4 +1,4 @@
-// 🏠 HomeInOn Backend API — CSV-based Product Loader (with cutout + full asset URLs)
+// 🏠 HomeInOn Backend API — CSV-based Product Loader (restored + fixed mappings)
 
 const Fastify = require("fastify");
 const cors = require("@fastify/cors");
@@ -9,72 +9,75 @@ const fastifyStatic = require("@fastify/static");
 
 const fastify = Fastify({ logger: true });
 
-// ✅ Enable CORS
+// ✅ Enable CORS for frontend
 fastify.register(cors, { origin: "*" });
 
-// ✅ Serve static assets (so images in /assets/ work)
+// ✅ Serve static assets (so images in /assets/ load correctly)
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, "assets"),
   prefix: "/assets/",
 });
 
-// 🌍 Your Render base URL — update this if your Render app name changes
+// 🌍 Base URL for Render (adjust if your backend URL changes)
 const BASE_URL = "https://homeinon-backend.onrender.com";
 
-// ✅ Normalize each row for the frontend
+// ✅ Normalize each CSV row to the frontend format
 function normalizeRow(row = {}) {
-  const pick = (...keys) => {
-    for (const k of keys) {
-      if (row[k] !== undefined && row[k] !== null && String(row[k]).trim() !== "") {
-        return String(row[k]).trim();
-      }
-    }
-    return "";
-  };
+  // Extract and clean values exactly matching your CSV headers
+  const sku = (row.code || "").trim();
+  const title = (row.title || "").trim();
+  const priceRaw = (row.price || "").trim();
+  const description = (row.description || "").trim();
+  const colour = (row.colour || "").trim();
+  const material = (row.material || "").trim();
+  const category = (row.category || "").trim();
+  const style = (row.style || "").trim();
+  const room = (row.room || "").trim();
 
-  // --- price fix
-  const rawPrice = pick("price");
-  let price = "";
-  if (/^\d+$/.test(rawPrice) && Number(rawPrice) > 1000) {
-    price = (Number(rawPrice) / 100).toFixed(2);
-  } else if (!isNaN(Number(rawPrice))) {
-    price = Number(rawPrice).toFixed(2);
+  // CSV has capitalised Height/Depth/Width
+  const height = (row.Height || "").trim();
+  const depth = (row.Depth || "").trim();
+  const width = (row.Width || "").trim();
+
+  // Image fields
+  let image_url = (row.image_url || "").trim();
+  let cutout_local_path = (row.cutout_local_path || "").trim();
+
+  // If image paths are relative, make them full URLs for Render
+  if (image_url && !image_url.startsWith("http")) {
+    image_url = `${BASE_URL}/${image_url.replace(/^\/?/, "")}`;
+  }
+  if (cutout_local_path && !cutout_local_path.startsWith("http")) {
+    cutout_local_path = `${BASE_URL}/${cutout_local_path.replace(/^\/?/, "")}`;
   }
 
-  // --- build image URLs
-  const baseImage = pick("base_image");
-  const cutout = pick("cutout_local_path");
-
-  // ✅ convert relative paths → full URLs so frontend can load them
-  const image_url =
-    baseImage && !baseImage.startsWith("http")
-      ? `${BASE_URL}/${baseImage.replace(/^\/?/, "")}`
-      : baseImage;
-
-  const cutout_local_path =
-    cutout && !cutout.startsWith("http")
-      ? `${BASE_URL}/${cutout.replace(/^\/?/, "")}`
-      : cutout;
+  // Normalise price
+  let price = "";
+  if (/^\d+$/.test(priceRaw) && Number(priceRaw) > 1000) {
+    price = (Number(priceRaw) / 100).toFixed(2);
+  } else if (!isNaN(Number(priceRaw))) {
+    price = Number(priceRaw).toFixed(2);
+  }
 
   return {
-    sku: pick("sku"),
-    title: pick("name"),
+    sku,
+    title,
     price,
-    description: pick("collection_description"),
-    colour: pick("color"),
-    material: pick("material"),
-    category: pick("product_kind"),
-    style: pick("style"),
-    width: pick("width"),
-    depth: pick("depth"),
-    height: pick("height"),
-    room: pick("room"),
-    image_url, // ✅ now full URL
-    cutout_local_path, // ✅ now full URL
+    description,
+    colour,
+    material,
+    category,
+    style,
+    room,
+    width,
+    depth,
+    height,
+    image_url,
+    cutout_local_path,
   };
 }
 
-// ✅ Load CSV
+// ✅ Load CSV data
 let products = [];
 
 function loadCSV() {
@@ -85,7 +88,7 @@ function loadCSV() {
     .on("end", () => {
       console.log("🧭 CSV headers:", Object.keys(raw[0] || {}));
       products = raw.map(normalizeRow);
-      fastify.log.info(`✅ Loaded ${products.length} products from CSV with cutout URLs`);
+      fastify.log.info(`✅ Loaded ${products.length} products from CSV`);
     })
     .on("error", (err) => {
       fastify.log.error(`❌ CSV read error: ${err.message}`);
@@ -93,14 +96,14 @@ function loadCSV() {
     });
 }
 
-// Load once on start
+// Load once on startup
 loadCSV();
 
 // ✅ Routes
 fastify.get("/", async () => ({ message: "HomeInOn API is running" }));
 fastify.get("/products", async () => ({ products }));
 
-// ✅ Start server
+// ✅ Start server (Render-compatible)
 fastify.listen({ port: process.env.PORT || 8080, host: "0.0.0.0" }, (err, address) => {
   if (err) {
     fastify.log.error(err);
