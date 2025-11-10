@@ -1,15 +1,22 @@
-// 🏠 HomeInOn Backend API — CSV-based Product Loader (with width/depth/height/room)
+// 🏠 HomeInOn Backend API — CSV-based Product Loader (with width/depth/height/room & cutouts)
 
-// CommonJS
 const Fastify = require("fastify");
 const cors = require("@fastify/cors");
 const fs = require("fs");
 const csv = require("csv-parser");
+const path = require("path");
+const fastifyStatic = require("@fastify/static");
 
 const fastify = Fastify({ logger: true });
 
 // ✅ Enable CORS
 fastify.register(cors, { origin: "*" });
+
+// ✅ Serve static assets (so images in /assets/ work)
+fastify.register(fastifyStatic, {
+  root: path.join(__dirname, "assets"),
+  prefix: "/assets/",
+});
 
 // ✅ Normalize each row to frontend format
 function normalizeRow(row = {}) {
@@ -44,7 +51,7 @@ function normalizeRow(row = {}) {
     depth: pick("depth"),
     height: pick("height"),
     room: pick("room"),
-    cutout_local_path: pick("cutout_local_path"),
+    cutout_local_path: pick("cutout_local_path"), // ✅ now included
   };
 }
 
@@ -59,7 +66,7 @@ function loadCSV() {
     .on("end", () => {
       console.log("🧭 CSV headers:", Object.keys(raw[0] || {}));
       products = raw.map(normalizeRow);
-      fastify.log.info(`✅ Loaded ${products.length} products from CSV with dimensions & room`);
+      fastify.log.info(`✅ Loaded ${products.length} products from CSV with dimensions, room & cutouts`);
     })
     .on("error", (err) => {
       fastify.log.error(`❌ CSV read error: ${err.message}`);
@@ -82,4 +89,3 @@ fastify.listen({ port: 8080, host: "0.0.0.0" }, (err, address) => {
   }
   console.log(`✅ Server running on ${address}`);
 });
-
