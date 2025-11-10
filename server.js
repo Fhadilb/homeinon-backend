@@ -1,4 +1,4 @@
-// 🏠 HomeInOn Backend API — CSV-based Product Loader (with width/depth/height/room & cutouts)
+// 🏠 HomeInOn Backend API — CSV-based Product Loader (with cutout + full asset URLs)
 
 const Fastify = require("fastify");
 const cors = require("@fastify/cors");
@@ -18,7 +18,10 @@ fastify.register(fastifyStatic, {
   prefix: "/assets/",
 });
 
-// ✅ Normalize each row to frontend format
+// 🌍 Your Render base URL — update this if your Render app name changes
+const BASE_URL = "https://homeinon-backend.onrender.com";
+
+// ✅ Normalize each row for the frontend
 function normalizeRow(row = {}) {
   const pick = (...keys) => {
     for (const k of keys) {
@@ -29,6 +32,7 @@ function normalizeRow(row = {}) {
     return "";
   };
 
+  // --- price fix
   const rawPrice = pick("price");
   let price = "";
   if (/^\d+$/.test(rawPrice) && Number(rawPrice) > 1000) {
@@ -37,11 +41,25 @@ function normalizeRow(row = {}) {
     price = Number(rawPrice).toFixed(2);
   }
 
+  // --- build image URLs
+  const baseImage = pick("base_image");
+  const cutout = pick("cutout_local_path");
+
+  // ✅ convert relative paths → full URLs so frontend can load them
+  const image_url =
+    baseImage && !baseImage.startsWith("http")
+      ? `${BASE_URL}/${baseImage.replace(/^\/?/, "")}`
+      : baseImage;
+
+  const cutout_local_path =
+    cutout && !cutout.startsWith("http")
+      ? `${BASE_URL}/${cutout.replace(/^\/?/, "")}`
+      : cutout;
+
   return {
     sku: pick("sku"),
     title: pick("name"),
     price,
-    image_url: pick("base_image"),
     description: pick("collection_description"),
     colour: pick("color"),
     material: pick("material"),
@@ -51,7 +69,8 @@ function normalizeRow(row = {}) {
     depth: pick("depth"),
     height: pick("height"),
     room: pick("room"),
-    cutout_local_path: pick("cutout_local_path"), // ✅ now included
+    image_url, // ✅ now full URL
+    cutout_local_path, // ✅ now full URL
   };
 }
 
@@ -66,7 +85,7 @@ function loadCSV() {
     .on("end", () => {
       console.log("🧭 CSV headers:", Object.keys(raw[0] || {}));
       products = raw.map(normalizeRow);
-      fastify.log.info(`✅ Loaded ${products.length} products from CSV with dimensions, room & cutouts`);
+      fastify.log.info(`✅ Loaded ${products.length} products from CSV with cutout URLs`);
     })
     .on("error", (err) => {
       fastify.log.error(`❌ CSV read error: ${err.message}`);
@@ -82,7 +101,7 @@ fastify.get("/", async () => ({ message: "HomeInOn API is running" }));
 fastify.get("/products", async () => ({ products }));
 
 // ✅ Start server
-fastify.listen({ port: 8080, host: "0.0.0.0" }, (err, address) => {
+fastify.listen({ port: process.env.PORT || 8080, host: "0.0.0.0" }, (err, address) => {
   if (err) {
     fastify.log.error(err);
     process.exit(1);
