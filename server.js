@@ -9,14 +9,42 @@ const fastifyStatic = require("@fastify/static");
 
 const fastify = Fastify({ logger: true });
 
-// ✅ Enable CORS for frontend
-fastify.register(cors, { origin: "*" });
+// ✅ Enable CORS for frontend and local testing
+fastify.register(cors, {
+  origin: [
+    "https://homeinon-frontend-static.onrender.com", // your live frontend
+    "http://localhost:3000"                          // for local testing
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true
+});
 
 // ✅ Serve static assets (so images in /assets/ load correctly)
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, "assets"),
   prefix: "/assets/",
 });
+
+// ✅ Serve 3D models (GLB files)
+fastify.register(fastifyStatic, {
+  root: path.join(__dirname, "models"),
+  prefix: "/models/",
+});
+
+
+// ✅ Serve static assets (so images in /assets/ load correctly)
+fastify.register(fastifyStatic, {
+  root: path.join(__dirname, "assets"),
+  prefix: "/assets/",
+});
+
+// ✅ Serve 3D models (GLB files)
+fastify.register(fastifyStatic, {
+  root: path.join(__dirname, "models"),
+  prefix: "/models/",
+});
+
 
 // 🌍 Base URL for Render (adjust if your backend URL changes)
 const BASE_URL = "https://homeinon-backend.onrender.com";
