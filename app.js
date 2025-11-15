@@ -20,16 +20,16 @@ fastify.register(cors, {
   credentials: true
 });
 
-// STATIC — MUST register separately, one folder per plugin
+// STATIC — register BOTH folders in one plugin (Render fix)
 fastify.register(fastifyStatic, {
-  root: path.join(__dirname, "assets"),
-  prefix: "/assets/",
+  root: [
+    path.join(__dirname, "assets"),
+    path.join(__dirname, "models")
+  ],
+  prefix: "/",
 });
 
-fastify.register(fastifyStatic, {
-  root: path.join(__dirname, "models"),
-  prefix: "/models/",
-});
+
 
 // Base URL
 const BASE_URL = "https://homeinon-backend.onrender.com";
