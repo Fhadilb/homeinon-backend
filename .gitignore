@@ -1,6 +1,5 @@
 node_modules/
 .env
-models/
 npm-debug.log
 .DS_Store
 *.log
