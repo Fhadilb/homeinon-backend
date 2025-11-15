@@ -20,30 +20,18 @@ fastify.register(cors, {
   credentials: true
 });
 
-// ✅ Serve static assets (so images in /assets/ load correctly)
+// ✅ Serve static assets (images, cutouts)
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, "assets"),
   prefix: "/assets/",
 });
 
-// ✅ Serve 3D models (GLB files)
+// ✅ Serve 3D models
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, "models"),
   prefix: "/models/",
 });
 
-
-// ✅ Serve static assets (so images in /assets/ load correctly)
-fastify.register(fastifyStatic, {
-  root: path.join(__dirname, "assets"),
-  prefix: "/assets/",
-});
-
-// ✅ Serve 3D models (GLB files)
-fastify.register(fastifyStatic, {
-  root: path.join(__dirname, "models"),
-  prefix: "/models/",
-});
 
 
 // 🌍 Base URL for Render (adjust if your backend URL changes)
