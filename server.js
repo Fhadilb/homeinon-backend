@@ -1,5 +1,5 @@
 // 🏠 HomeInOn Backend API — FINAL FIXED VERSION
-
+// FORCE REBUILD — ignore
 const Fastify = require("fastify");
 const cors = require("@fastify/cors");
 const fs = require("fs");
