@@ -1,4 +1,4 @@
-// 🏠 HomeInOn Backend API — CSV-based Product Loader (restored + fixed mappings)
+// 🏠 HomeInOn Backend API — CLEAN + FIXED
 
 const Fastify = require("fastify");
 const cors = require("@fastify/cors");
@@ -9,37 +9,39 @@ const fastifyStatic = require("@fastify/static");
 
 const fastify = Fastify({ logger: true });
 
-// ✅ Enable CORS for frontend and local testing
+// CORS
 fastify.register(cors, {
   origin: [
-    "https://homeinon-frontend-static.onrender.com", // your live frontend
-    "http://localhost:3000"                          // for local testing
+    "https://homeinon-frontend-static.onrender.com",
+    "http://localhost:3000"
   ],
   methods: ["GET", "POST", "PUT", "DELETE"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 });
 
-// ✅ Serve static assets (images, cutouts)
+// Serve assets (ONLY ONCE)
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, "assets"),
   prefix: "/assets/",
 });
 
-// ✅ Serve 3D models
+// Serve models (ONLY ONCE)
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, "models"),
   prefix: "/models/",
 });
 
-
-
-// 🌍 Base URL for Render (adjust if your backend URL changes)
+// Base URL
 const BASE_URL = "https://homeinon-backend.onrender.com";
 
-// ✅ Normalize each CSV row to the frontend format
+// Clean dimension helper
+function cleanDimension(val = "") {
+  return val.replace(/cm/gi, "").trim();
+}
+
+// Normalize product
 function normalizeRow(row = {}) {
-  // Extract and clean values exactly matching your CSV headers
   const sku = (row.code || "").trim();
   const title = (row.title || "").trim();
   const priceRaw = (row.price || "").trim();
@@ -50,21 +52,13 @@ function normalizeRow(row = {}) {
   const style = (row.style || "").trim();
   const room = (row.room || "").trim();
 
-// Remove "cm", "CM", spaces, duplicates, etc.
-function cleanDimension(val = "") {
-  return val.replace(/cm/gi, "").trim();
-}
+  const height = cleanDimension(row.Height || "");
+  const depth = cleanDimension(row.Depth || "");
+  const width = cleanDimension(row.Width || "");
 
-const height = cleanDimension(row.Height || "");
-const depth = cleanDimension(row.Depth || "");
-const width = cleanDimension(row.Width || "");
-
-
-  // Image fields
   let image_url = (row.image_url || "").trim();
   let cutout_local_path = (row.cutout_local_path || "").trim();
 
-  // If image paths are relative, make them full URLs for Render
   if (image_url && !image_url.startsWith("http")) {
     image_url = `${BASE_URL}/${image_url.replace(/^\/?/, "")}`;
   }
@@ -72,7 +66,6 @@ const width = cleanDimension(row.Width || "");
     cutout_local_path = `${BASE_URL}/${cutout_local_path.replace(/^\/?/, "")}`;
   }
 
-  // Normalise price
   let price = "";
   if (/^\d+$/.test(priceRaw) && Number(priceRaw) > 1000) {
     price = (Number(priceRaw) / 100).toFixed(2);
@@ -98,18 +91,16 @@ const width = cleanDimension(row.Width || "");
   };
 }
 
-// ✅ Load CSV data
+// Load CSV
 let products = [];
 
 function loadCSV() {
   const raw = [];
 
-  // 🟡 DEBUG: Confirm which CSV file the server is reading
   console.log("Loaded CSV file from:", path.resolve("products_clean.csv"));
 
   fs.createReadStream("products_clean.csv")
     .pipe(csv())
-
     .on("data", (data) => raw.push(data))
     .on("end", () => {
       console.log("🧭 CSV headers:", Object.keys(raw[0] || {}));
@@ -122,18 +113,20 @@ function loadCSV() {
     });
 }
 
-// Load once on startup
 loadCSV();
 
-// ✅ Routes
+// Routes
 fastify.get("/", async () => ({ message: "HomeInOn API is running" }));
 fastify.get("/products", async () => ({ products }));
 
-// ✅ Start server (Render-compatible)
-fastify.listen({ port: process.env.PORT || 8080, host: "0.0.0.0" }, (err, address) => {
-  if (err) {
-    fastify.log.error(err);
-    process.exit(1);
+// Start server
+fastify.listen(
+  { port: process.env.PORT || 8080, host: "0.0.0.0" },
+  (err, address) => {
+    if (err) {
+      fastify.log.error(err);
+      process.exit(1);
+    }
+    console.log(`✅ Server running on ${address}`);
   }
-  console.log(`✅ Server running on ${address}`);
-});
+);
