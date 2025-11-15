@@ -1,4 +1,4 @@
-// 🏠 HomeInOn Backend API — CLEAN + FIXED
+// 🏠 HomeInOn Backend API — FINAL FIXED VERSION
 
 const Fastify = require("fastify");
 const cors = require("@fastify/cors");
@@ -20,13 +20,12 @@ fastify.register(cors, {
   credentials: true
 });
 
-// Serve assets (ONLY ONCE)
+// STATIC — MUST register separately, one folder per plugin
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, "assets"),
   prefix: "/assets/",
 });
 
-// Serve models (ONLY ONCE)
 fastify.register(fastifyStatic, {
   root: path.join(__dirname, "models"),
   prefix: "/models/",
