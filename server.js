@@ -115,8 +115,13 @@ let products = [];
 
 function loadCSV() {
   const raw = [];
+
+  // 🟡 DEBUG: Confirm which CSV file the server is reading
+  console.log("Loaded CSV file from:", path.resolve("products_clean.csv"));
+
   fs.createReadStream("products_clean.csv")
     .pipe(csv())
+
     .on("data", (data) => raw.push(data))
     .on("end", () => {
       console.log("🧭 CSV headers:", Object.keys(raw[0] || {}));
