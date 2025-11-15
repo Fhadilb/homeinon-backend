@@ -62,10 +62,15 @@ function normalizeRow(row = {}) {
   const style = (row.style || "").trim();
   const room = (row.room || "").trim();
 
-  // CSV has capitalised Height/Depth/Width
-  const height = (row.Height || "").trim();
-  const depth = (row.Depth || "").trim();
-  const width = (row.Width || "").trim();
+// Remove "cm", "CM", spaces, duplicates, etc.
+function cleanDimension(val = "") {
+  return val.replace(/cm/gi, "").trim();
+}
+
+const height = cleanDimension(row.Height || "");
+const depth = cleanDimension(row.Depth || "");
+const width = cleanDimension(row.Width || "");
+
 
   // Image fields
   let image_url = (row.image_url || "").trim();
