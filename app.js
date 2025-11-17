@@ -65,12 +65,11 @@ function normalizeRow(row = {}) {
     cutout_local_path = `${BASE_URL}/${cutout_local_path.replace(/^\/?/, "")}`;
   }
 
-  let price = "";
-  if (/^\d+$/.test(priceRaw) && Number(priceRaw) > 1000) {
-    price = (Number(priceRaw) / 100).toFixed(2);
-  } else if (!isNaN(Number(priceRaw))) {
-    price = Number(priceRaw).toFixed(2);
-  }
+let price = "";
+if (!isNaN(Number(priceRaw))) {
+  price = Number(priceRaw).toFixed(2);
+}
+
 
   return {
     sku,
