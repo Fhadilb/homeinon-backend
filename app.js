@@ -1,11 +1,20 @@
-// 🏠 HomeInOn Backend API — FINAL FIXED VERSION
-// FORCE REBUILD — ignore
+// 🏠 HomeInOn Backend API — OPENAI VERSION
+require("dotenv").config();
+
 const Fastify = require("fastify");
 const cors = require("@fastify/cors");
 const fs = require("fs");
 const csv = require("csv-parser");
 const path = require("path");
 const fastifyStatic = require("@fastify/static");
+
+// -----------------------------
+// ✅ NEW — OpenAI (official SDK)
+// -----------------------------
+const OpenAI = require("openai");
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 const fastify = Fastify({ logger: true });
 
@@ -15,12 +24,12 @@ fastify.register(cors, {
     "https://homeinon-frontend-static.onrender.com",
     "http://localhost:3000"
   ],
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"],
   credentials: true
 });
 
-// STATIC — register BOTH folders in one plugin (Render fix)
+// STATIC
 fastify.register(fastifyStatic, {
   root: [
     path.join(__dirname, "assets"),
@@ -29,17 +38,13 @@ fastify.register(fastifyStatic, {
   prefix: "/",
 });
 
-
-
-// Base URL
+// BASE
 const BASE_URL = "https://homeinon-backend.onrender.com";
 
-// Clean dimension helper
 function cleanDimension(val = "") {
   return val.replace(/cm/gi, "").trim();
 }
 
-// Normalize product
 function normalizeRow(row = {}) {
   const sku = (row.code || "").trim();
   const title = (row.title || "").trim();
@@ -65,11 +70,10 @@ function normalizeRow(row = {}) {
     cutout_local_path = `${BASE_URL}/${cutout_local_path.replace(/^\/?/, "")}`;
   }
 
-let price = "";
-if (!isNaN(Number(priceRaw))) {
-  price = Number(priceRaw).toFixed(2);
-}
-
+  let price = "";
+  if (!isNaN(Number(priceRaw))) {
+    price = Number(priceRaw).toFixed(2);
+  }
 
   return {
     sku,
@@ -89,7 +93,7 @@ if (!isNaN(Number(priceRaw))) {
   };
 }
 
-// Load CSV
+// LOAD CSV
 let products = [];
 
 function loadCSV() {
@@ -113,11 +117,58 @@ function loadCSV() {
 
 loadCSV();
 
-// Routes
 fastify.get("/", async () => ({ message: "HomeInOn API is running" }));
 fastify.get("/products", async () => ({ products }));
 
-// Start server
+// ----------------------------------------------------------
+// ✅ NEW AI SUGGESTION ENDPOINT (OpenAI)
+// ----------------------------------------------------------
+fastify.post("/ai-suggest", async (req, reply) => {
+  const userQuery = req.body.query || "";
+
+  if (!userQuery) {
+    return reply.send({ categories: [] });
+  }
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an interior design assistant. The user will describe a room and you will output ONLY a JSON object with a 'categories' array. Choose the best furniture categories."
+        },
+        {
+          role: "user",
+          content: `User description: ${userQuery}\n\nReturn ONLY JSON like: { "categories": ["bed", "wardrobe"] }`
+        }
+      ],
+      temperature: 0.2
+    });
+
+    // Extract JSON
+    let text = response.choices[0].message.content;
+    let json = {};
+
+    try {
+      json = JSON.parse(text);
+    } catch (err) {
+      json = { categories: [] };
+    }
+
+    return reply.send(json);
+
+  } catch (error) {
+    console.error("OpenAI Error:", error);
+    return reply.status(500).send({
+      error: "AI request failed",
+      categories: []
+    });
+  }
+});
+
+// START SERVER
 fastify.listen(
   { port: process.env.PORT || 8080, host: "0.0.0.0" },
   (err, address) => {
