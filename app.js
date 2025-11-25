@@ -8,12 +8,10 @@ const csv = require("csv-parser");
 const path = require("path");
 const fastifyStatic = require("@fastify/static");
 
-// -----------------------------
-// ✅ NEW — OpenAI (official SDK)
-// -----------------------------
+// ✅ OpenAI (CommonJS)
 const OpenAI = require("openai");
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 const fastify = Fastify({ logger: true });
@@ -38,7 +36,7 @@ fastify.register(fastifyStatic, {
   prefix: "/",
 });
 
-// BASE
+// BASE URL
 const BASE_URL = "https://homeinon-backend.onrender.com";
 
 function cleanDimension(val = "") {
@@ -117,11 +115,12 @@ function loadCSV() {
 
 loadCSV();
 
+// ROUTES
 fastify.get("/", async () => ({ message: "HomeInOn API is running" }));
 fastify.get("/products", async () => ({ products }));
 
 // ----------------------------------------------------------
-// ✅ NEW AI SUGGESTION ENDPOINT (OpenAI)
+// ✅ FINAL, CLEAN AI ENDPOINT (ONLY ONE!)
 // ----------------------------------------------------------
 fastify.post("/ai-suggest", async (req, reply) => {
   const userQuery = req.body.query || "";
@@ -137,17 +136,16 @@ fastify.post("/ai-suggest", async (req, reply) => {
         {
           role: "system",
           content:
-            "You are an interior design assistant. The user will describe a room and you will output ONLY a JSON object with a 'categories' array. Choose the best furniture categories."
+            "You are an interior design assistant. The user will describe a room and you will output ONLY a JSON object with a 'categories' array."
         },
         {
           role: "user",
-          content: `User description: ${userQuery}\n\nReturn ONLY JSON like: { "categories": ["bed", "wardrobe"] }`
+          content: `User description: ${userQuery}\n\nReturn ONLY JSON like: { "categories": ["bed"] }`
         }
       ],
       temperature: 0.2
     });
 
-    // Extract JSON
     let text = response.choices[0].message.content;
     let json = {};
 
