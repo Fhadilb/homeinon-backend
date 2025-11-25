@@ -1,4 +1,5 @@
-// 🏠 HomeInOn Backend API — OPENAI VERSION
+// 🏠 HomeInOn Backend API — OPENAI VERSION (FINAL CLEAN)
+// -----------------------------------------------------
 require("dotenv").config();
 
 const Fastify = require("fastify");
@@ -16,7 +17,6 @@ const openai = new OpenAI({
 
 const fastify = Fastify({ logger: true });
 
-// CORS
 fastify.register(cors, {
   origin: [
     "https://homeinon-frontend-static.onrender.com",
@@ -27,7 +27,7 @@ fastify.register(cors, {
   credentials: true
 });
 
-// STATIC
+// STATIC FILES
 fastify.register(fastifyStatic, {
   root: [
     path.join(__dirname, "assets"),
@@ -39,8 +39,9 @@ fastify.register(fastifyStatic, {
 // BASE URL
 const BASE_URL = "https://homeinon-backend.onrender.com";
 
-function cleanDimension(val = "") {
-  return val.replace(/cm/gi, "").trim();
+// HELPERS
+function cleanDimension(v = "") {
+  return v.replace(/cm/gi, "").trim();
 }
 
 function normalizeRow(row = {}) {
@@ -91,43 +92,37 @@ function normalizeRow(row = {}) {
   };
 }
 
-// LOAD CSV
+// CSV LOAD
 let products = [];
-
 function loadCSV() {
   const raw = [];
-
-  console.log("Loaded CSV file from:", path.resolve("products_clean.csv"));
+  console.log("Loading CSV...");
 
   fs.createReadStream("products_clean.csv")
     .pipe(csv())
     .on("data", (data) => raw.push(data))
     .on("end", () => {
-      console.log("🧭 CSV headers:", Object.keys(raw[0] || {}));
       products = raw.map(normalizeRow);
-      fastify.log.info(`✅ Loaded ${products.length} products from CSV`);
+      console.log(`✅ Loaded ${products.length} products`);
     })
     .on("error", (err) => {
-      fastify.log.error(`❌ CSV read error: ${err.message}`);
+      console.error("❌ CSV Load Error:", err);
       products = [];
     });
 }
-
 loadCSV();
 
 // ROUTES
-fastify.get("/", async () => ({ message: "HomeInOn API is running" }));
+fastify.get("/", async () => ({ message: "HomeInOn API running" }));
 fastify.get("/products", async () => ({ products }));
 
 // ----------------------------------------------------------
-// ✅ FINAL, CLEAN AI ENDPOINT (ONLY ONE!)
+// ⭐ FINAL WORKING AI ENDPOINT (Single, Clean, No Duplicate)
 // ----------------------------------------------------------
 fastify.post("/ai-suggest", async (req, reply) => {
   const userQuery = req.body.query || "";
 
-  if (!userQuery) {
-    return reply.send({ categories: [] });
-  }
+  if (!userQuery) return reply.send({ categories: [] });
 
   try {
     const response = await openai.chat.completions.create({
@@ -135,30 +130,30 @@ fastify.post("/ai-suggest", async (req, reply) => {
       messages: [
         {
           role: "system",
-          content:
-            "You are an interior design assistant. The user will describe a room and you will output ONLY a JSON object with a 'categories' array."
+          content: "Return ONLY JSON: { \"categories\": [...] }"
         },
         {
           role: "user",
-          content: `User description: ${userQuery}\n\nReturn ONLY JSON like: { "categories": ["bed"] }`
+          content: `User description: ${userQuery}`
         }
       ],
       temperature: 0.2
     });
 
-    let text = response.choices[0].message.content;
-    let json = {};
+    let text = response.choices[0].message.content.trim();
 
+    // Try JSON parse
+    let json;
     try {
       json = JSON.parse(text);
-    } catch (err) {
+    } catch (e) {
       json = { categories: [] };
     }
 
     return reply.send(json);
 
-  } catch (error) {
-    console.error("OpenAI Error:", error);
+  } catch (err) {
+    console.error("AI Error:", err);
     return reply.status(500).send({
       error: "AI request failed",
       categories: []
@@ -174,6 +169,6 @@ fastify.listen(
       fastify.log.error(err);
       process.exit(1);
     }
-    console.log(`✅ Server running on ${address}`);
+    console.log(`✅ Server running at ${address}`);
   }
 );
