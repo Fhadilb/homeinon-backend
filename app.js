@@ -105,10 +105,9 @@ fastify.post("/ai-gemini", async (req, reply) => {
   if (!userQuery) return reply.send({ categories: [] });
 
   try {
-const model = genAI.getGenerativeModel({
-  model: "gemini-1.0-pro"
-});
-
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash-001"   // ✅ FREE TIER WORKING MODEL
+    });
 
     const prompt = `
 You are an interior design engine.
@@ -124,7 +123,7 @@ Return ONLY valid JSON like this:
     let json;
     try {
       json = JSON.parse(text);
-    } catch {
+    } catch (e) {
       json = { categories: [] };
     }
 
@@ -138,6 +137,7 @@ Return ONLY valid JSON like this:
     });
   }
 });
+
 
 /* ----------------------------------------------------
    START SERVER
