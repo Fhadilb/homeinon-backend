@@ -65,10 +65,15 @@ function normalizeRow(row = {}) {
     height: cleanDimension(row.Height || ""),
     depth: cleanDimension(row.Depth || ""),
     width: cleanDimension(row.Width || ""),
-    image_url: `${BASE_URL}/${(row.image_url || "").replace(/^\/?/, "")}`,
-    cutout_local_path: `${BASE_URL}/${(row.cutout_local_path || "").replace(/^\/?/, "")}`
+
+    // ✅ FIX: Serve images from /assets/
+    image_url: `${BASE_URL}/assets/${(row.image_url || "").replace(/^\/?assets\//, "")}`,
+
+    // ✅ FIX: Serve cutouts from /models/ or /assets/Cutouts/
+    cutout_local_path: `${BASE_URL}/assets/Cutouts/${(row.cutout_local_path || "").replace(/^\/?assets\/Cutouts\//, "")}`,
   };
 }
+
 
 /* ----------------------------------------------------
    LOAD CSV
@@ -101,22 +106,22 @@ fastify.get("/products", async () => ({ products }));
 /* ----------------------------------------------------
    ⭐ GEMINI AI ENDPOINT
 ---------------------------------------------------- */
-fastify.post("/ai-suggest", async (req, reply) => {
+fastify.post("/ai-gemini", async (req, reply) => {
   const userQuery = req.body.query || "";
+
   if (!userQuery) return reply.send({ categories: [] });
 
   try {
-    // Re-use the Gemini code from /ai-gemini
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash"
+      model: "gemini-1.5-flash-001"  // FINAL + WORKING ON RENDER
     });
 
     const prompt = `
-User interior design request:
-"${userQuery}"
+Extract interior furniture categories from user text.
+User: "${userQuery}"
 
 Return ONLY JSON:
-{ "categories": ["bed","wardrobe"] }
+{ "categories": ["bed", "wardrobe"] }
 `;
 
     const result = await model.generateContent(prompt);
@@ -130,6 +135,7 @@ Return ONLY JSON:
     }
 
     return reply.send(json);
+
   } catch (err) {
     console.error("Gemini AI Error:", err);
     return reply.status(500).send({
@@ -138,6 +144,7 @@ Return ONLY JSON:
     });
   }
 });
+
 
 
 /* ----------------------------------------------------
