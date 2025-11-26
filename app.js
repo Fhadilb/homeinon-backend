@@ -1,5 +1,4 @@
 // 🏠 HomeInOn Backend API — GEMINI VERSION (FINAL CLEAN)
-// -----------------------------------------------------
 require("dotenv").config();
 
 const Fastify = require("fastify");
@@ -9,15 +8,17 @@ const csv = require("csv-parser");
 const path = require("path");
 const fastifyStatic = require("@fastify/static");
 
-// -----------------------------------------------------
-// ⭐ GOOGLE GEMINI CLIENT (FREE TIER AVAILABLE)
-// -----------------------------------------------------
+// ⭐ GOOGLE GEMINI (CommonJS)
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// IMPORTANT — this must match your Render environment key name
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
 const fastify = Fastify({ logger: true });
 
-// CORS
+/* ----------------------------------------------------
+   CORS
+---------------------------------------------------- */
 fastify.register(cors, {
   origin: [
     "https://homeinon-frontend-static.onrender.com",
@@ -28,7 +29,9 @@ fastify.register(cors, {
   credentials: true
 });
 
-// STATIC FILES
+/* ----------------------------------------------------
+   STATIC FILES
+---------------------------------------------------- */
 fastify.register(fastifyStatic, {
   root: [
     path.join(__dirname, "assets"),
@@ -37,63 +40,37 @@ fastify.register(fastifyStatic, {
   prefix: "/",
 });
 
-// BASE URL
+/* ----------------------------------------------------
+   HELPERS
+---------------------------------------------------- */
 const BASE_URL = "https://homeinon-backend.onrender.com";
 
-// HELPERS
 function cleanDimension(v = "") {
   return v.replace(/cm/gi, "").trim();
 }
 
 function normalizeRow(row = {}) {
-  const sku = (row.code || "").trim();
-  const title = (row.title || "").trim();
-  const priceRaw = (row.price || "").trim();
-  const description = (row.description || "").trim();
-  const colour = (row.colour || "").trim();
-  const material = (row.material || "").trim();
-  const category = (row.category || "").trim();
-  const style = (row.style || "").trim();
-  const room = (row.room || "").trim();
-
-  const height = cleanDimension(row.Height || "");
-  const depth = cleanDimension(row.Depth || "");
-  const width = cleanDimension(row.Width || "");
-
-  let image_url = (row.image_url || "").trim();
-  let cutout_local_path = (row.cutout_local_path || "").trim();
-
-  if (image_url && !image_url.startsWith("http")) {
-    image_url = `${BASE_URL}/${image_url.replace(/^\/?/, "")}`;
-  }
-  if (cutout_local_path && !cutout_local_path.startsWith("http")) {
-    cutout_local_path = `${BASE_URL}/${cutout_local_path.replace(/^\/?/, "")}`;
-  }
-
-  let price = "";
-  if (!isNaN(Number(priceRaw))) {
-    price = Number(priceRaw).toFixed(2);
-  }
-
   return {
-    sku,
-    title,
-    price,
-    description,
-    colour,
-    material,
-    category,
-    style,
-    room,
-    width,
-    depth,
-    height,
-    image_url,
-    cutout_local_path,
+    sku: (row.code || "").trim(),
+    title: (row.title || "").trim(),
+    price: Number(row.price || 0).toFixed(2),
+    description: (row.description || "").trim(),
+    colour: (row.colour || "").trim(),
+    material: (row.material || "").trim(),
+    category: (row.category || "").trim(),
+    style: (row.style || "").trim(),
+    room: (row.room || "").trim(),
+    height: cleanDimension(row.Height || ""),
+    depth: cleanDimension(row.Depth || ""),
+    width: cleanDimension(row.Width || ""),
+    image_url: `${BASE_URL}/${(row.image_url || "").replace(/^\/?/, "")}`,
+    cutout_local_path: `${BASE_URL}/${(row.cutout_local_path || "").replace(/^\/?/, "")}`
   };
 }
 
-// CSV LOAD
+/* ----------------------------------------------------
+   LOAD CSV
+---------------------------------------------------- */
 let products = [];
 function loadCSV() {
   const raw = [];
@@ -101,73 +78,76 @@ function loadCSV() {
 
   fs.createReadStream("products_clean.csv")
     .pipe(csv())
-    .on("data", (data) => raw.push(data))
+    .on("data", (d) => raw.push(d))
     .on("end", () => {
       products = raw.map(normalizeRow);
       console.log(`✅ Loaded ${products.length} products`);
     })
     .on("error", (err) => {
-      console.error("❌ CSV Load Error:", err);
-      products = [];
+      console.error("CSV error:", err);
     });
 }
+
 loadCSV();
 
-// ROUTES
+/* ----------------------------------------------------
+   ROUTES
+---------------------------------------------------- */
 fastify.get("/", async () => ({ message: "HomeInOn API running" }));
 fastify.get("/products", async () => ({ products }));
 
-// ----------------------------------------------------------
-// ⭐ AI ENDPOINT — GEMINI 1.5 FLASH (FREE TIER)
-// ----------------------------------------------------------
-fastify.post("/ai-suggest", async (req, reply) => {
+/* ----------------------------------------------------
+   ⭐ GEMINI AI ENDPOINT
+---------------------------------------------------- */
+fastify.post("/ai-gemini", async (req, reply) => {
   const userQuery = req.body.query || "";
 
-  if (!userQuery) {
-    return reply.send({ categories: [] });
-  }
+  if (!userQuery) return reply.send({ categories: [] });
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    
-    const prompt = `
-      You are an AI assistant. 
-      Extract furniture categories from the user description.
-      Return ONLY valid JSON like:
-      { "categories": ["bed", "wardrobe"] }
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash"
+    });
 
-      User: ${userQuery}
-    `;
+    const prompt = `
+You are an interior design recommendation engine.
+User request: "${userQuery}"
+
+Return ONLY valid JSON like:
+{ "categories": ["bed", "wardrobe"] }
+`;
 
     const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
+    const text = result.response.text();
 
     let json;
     try {
       json = JSON.parse(text);
-    } catch (err) {
-      json = { categories: [] }; // fallback
+    } catch {
+      json = { categories: [] };
     }
 
     return reply.send(json);
 
   } catch (err) {
-    console.error("Gemini Error:", err);
+    console.error("Gemini AI Error:", err);
     return reply.status(500).send({
-      error: "AI request failed",
+      error: "Gemini AI failed",
       categories: []
     });
   }
 });
 
-// START SERVER
+/* ----------------------------------------------------
+   START SERVER
+---------------------------------------------------- */
 fastify.listen(
   { port: process.env.PORT || 8080, host: "0.0.0.0" },
-  (err, address) => {
+  (err, addr) => {
     if (err) {
       fastify.log.error(err);
       process.exit(1);
     }
-    console.log(`✅ Server running at ${address}`);
+    console.log(`✅ Server running at ${addr}`);
   }
 );
