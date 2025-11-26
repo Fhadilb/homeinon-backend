@@ -1,4 +1,6 @@
 // 🏠 HomeInOn Backend API — GEMINI VERSION (FINAL CLEAN)
+// force new deploy 2025-11-26
+
 require("dotenv").config();
 
 const Fastify = require("fastify");
