@@ -105,9 +105,10 @@ fastify.post("/ai-gemini", async (req, reply) => {
   if (!userQuery) return reply.send({ categories: [] });
 
   try {
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-latest"
-    });
+const model = genAI.getGenerativeModel({
+  model: "gemini-1.0-pro"
+});
+
 
     const prompt = `
 You are an interior design engine.
