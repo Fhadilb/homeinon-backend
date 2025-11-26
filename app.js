@@ -106,7 +106,7 @@ fastify.post("/ai-gemini", async (req, reply) => {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-001"   // ✅ FREE TIER WORKING MODEL
+      model: "gemini-1.0-flash"   // ⭐ WORKING FREE MODEL
     });
 
     const prompt = `
@@ -137,6 +137,7 @@ Return ONLY valid JSON like this:
     });
   }
 });
+
 
 
 /* ----------------------------------------------------
