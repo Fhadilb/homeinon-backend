@@ -1,5 +1,5 @@
-// 🏠 HomeInOn Backend API — OPENAI VERSION (FINAL CLEAN)
-// -----------------------------------------------------
+// 🏠 HomeInOn Backend API — OpenAI v1 (FINAL WORKING VERSION)
+// -----------------------------------------------------------
 require("dotenv").config();
 
 const Fastify = require("fastify");
@@ -9,7 +9,7 @@ const csv = require("csv-parser");
 const path = require("path");
 const fastifyStatic = require("@fastify/static");
 
-// ✅ OpenAI (CommonJS)
+// ⭐ NEW OpenAI v1 syntax
 const OpenAI = require("openai");
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -20,11 +20,11 @@ const fastify = Fastify({ logger: true });
 fastify.register(cors, {
   origin: [
     "https://homeinon-frontend-static.onrender.com",
-    "http://localhost:3000"
+    "http://localhost:3000",
   ],
   methods: ["GET", "POST"],
   allowedHeaders: ["Content-Type"],
-  credentials: true
+  credentials: true,
 });
 
 // STATIC FILES
@@ -36,7 +36,6 @@ fastify.register(fastifyStatic, {
   prefix: "/",
 });
 
-// BASE URL
 const BASE_URL = "https://homeinon-backend.onrender.com";
 
 // HELPERS
@@ -117,33 +116,21 @@ fastify.get("/", async () => ({ message: "HomeInOn API running" }));
 fastify.get("/products", async () => ({ products }));
 
 // ----------------------------------------------------------
-// ⭐ FINAL WORKING AI ENDPOINT (Single, Clean, No Duplicate)
+// ⭐ FINAL AI ENDPOINT using OpenAI v1 API (correct for sk-proj-* keys)
 // ----------------------------------------------------------
 fastify.post("/ai-suggest", async (req, reply) => {
   const userQuery = req.body.query || "";
-
   if (!userQuery) return reply.send({ categories: [] });
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "Return ONLY JSON: { \"categories\": [...] }"
-        },
-        {
-          role: "user",
-          content: `User description: ${userQuery}`
-        }
-      ],
-      temperature: 0.2
+    const response = await openai.responses.create({
+      model: "gpt-4o-mini",    // ⭐ correct model endpoint
+      input: `User description: ${userQuery}\nReturn ONLY valid JSON: {"categories": ["bed","sofa"]}`,
     });
 
-    let text = response.choices[0].message.content.trim();
-
-    // Try JSON parse
+    const text = response.output_text || "";
     let json;
+
     try {
       json = JSON.parse(text);
     } catch (e) {
