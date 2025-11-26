@@ -11,7 +11,7 @@ const fastifyStatic = require("@fastify/static");
 // ⭐ GOOGLE GEMINI (CommonJS)
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// IMPORTANT — this must match your Render environment key name
+// IMPORTANT — must match Render environment key name
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const fastify = Fastify({ logger: true });
@@ -106,14 +106,14 @@ fastify.post("/ai-gemini", async (req, reply) => {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash"
+      model: "gemini-1.5-flash-latest"
     });
 
     const prompt = `
-You are an interior design recommendation engine.
+You are an interior design engine.
 User request: "${userQuery}"
 
-Return ONLY valid JSON like:
+Return ONLY valid JSON like this:
 { "categories": ["bed", "wardrobe"] }
 `;
 
