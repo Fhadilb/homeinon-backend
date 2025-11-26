@@ -12,7 +12,7 @@ const fastifyStatic = require("@fastify/static");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // IMPORTANT — this must match your Render environment key name
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const fastify = Fastify({ logger: true });
 
