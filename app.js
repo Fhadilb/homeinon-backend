@@ -52,6 +52,12 @@ function cleanDimension(v = "") {
 }
 
 function normalizeRow(row = {}) {
+  const rawImage = (row.image_url || "").trim();
+  const rawCutout = (row.cutout_local_path || "").trim();
+
+  // Detect absolute URL
+  const isFullURL = (url) => /^https?:\/\//i.test(url);
+
   return {
     sku: (row.code || "").trim(),
     title: (row.title || "").trim(),
@@ -66,13 +72,18 @@ function normalizeRow(row = {}) {
     depth: cleanDimension(row.Depth || ""),
     width: cleanDimension(row.Width || ""),
 
-    // ✅ FIX: Serve images from /assets/
-    image_url: `${BASE_URL}/assets/${(row.image_url || "").replace(/^\/?assets\//, "")}`,
+    // ⭐ FIXED: Keep full URLs, else prepend your backend
+    image_url: isFullURL(rawImage)
+      ? rawImage
+      : `${BASE_URL}/${rawImage.replace(/^\/?/, "")}`,
 
-    // ✅ FIX: Serve cutouts from /models/ or /assets/Cutouts/
-    cutout_local_path: `${BASE_URL}/assets/Cutouts/${(row.cutout_local_path || "").replace(/^\/?assets\/Cutouts\//, "")}`,
+    cutout_local_path: isFullURL(rawCutout)
+      ? rawCutout
+      : `${BASE_URL}/${rawCutout.replace(/^\/?/, "")}`
   };
 }
+
+
 
 
 /* ----------------------------------------------------
