@@ -1,5 +1,5 @@
-// 🏠 HomeInOn Backend API — OpenAI v1 (FINAL WORKING VERSION)
-// -----------------------------------------------------------
+// 🏠 HomeInOn Backend API — GEMINI VERSION (FINAL CLEAN)
+// -----------------------------------------------------
 require("dotenv").config();
 
 const Fastify = require("fastify");
@@ -9,22 +9,23 @@ const csv = require("csv-parser");
 const path = require("path");
 const fastifyStatic = require("@fastify/static");
 
-// ⭐ NEW OpenAI v1 syntax
-const OpenAI = require("openai");
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// -----------------------------------------------------
+// ⭐ GOOGLE GEMINI CLIENT (FREE TIER AVAILABLE)
+// -----------------------------------------------------
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const fastify = Fastify({ logger: true });
 
+// CORS
 fastify.register(cors, {
   origin: [
     "https://homeinon-frontend-static.onrender.com",
-    "http://localhost:3000",
+    "http://localhost:3000"
   ],
   methods: ["GET", "POST"],
   allowedHeaders: ["Content-Type"],
-  credentials: true,
+  credentials: true
 });
 
 // STATIC FILES
@@ -36,6 +37,7 @@ fastify.register(fastifyStatic, {
   prefix: "/",
 });
 
+// BASE URL
 const BASE_URL = "https://homeinon-backend.onrender.com";
 
 // HELPERS
@@ -116,31 +118,41 @@ fastify.get("/", async () => ({ message: "HomeInOn API running" }));
 fastify.get("/products", async () => ({ products }));
 
 // ----------------------------------------------------------
-// ⭐ FINAL AI ENDPOINT using OpenAI v1 API (correct for sk-proj-* keys)
+// ⭐ AI ENDPOINT — GEMINI 1.5 FLASH (FREE TIER)
 // ----------------------------------------------------------
 fastify.post("/ai-suggest", async (req, reply) => {
   const userQuery = req.body.query || "";
-  if (!userQuery) return reply.send({ categories: [] });
+
+  if (!userQuery) {
+    return reply.send({ categories: [] });
+  }
 
   try {
-    const response = await openai.responses.create({
-      model: "gpt-4o-mini",    // ⭐ correct model endpoint
-      input: `User description: ${userQuery}\nReturn ONLY valid JSON: {"categories": ["bed","sofa"]}`,
-    });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    
+    const prompt = `
+      You are an AI assistant. 
+      Extract furniture categories from the user description.
+      Return ONLY valid JSON like:
+      { "categories": ["bed", "wardrobe"] }
 
-    const text = response.output_text || "";
+      User: ${userQuery}
+    `;
+
+    const result = await model.generateContent(prompt);
+    const text = result.response.text().trim();
+
     let json;
-
     try {
       json = JSON.parse(text);
-    } catch (e) {
-      json = { categories: [] };
+    } catch (err) {
+      json = { categories: [] }; // fallback
     }
 
     return reply.send(json);
 
   } catch (err) {
-    console.error("AI Error:", err);
+    console.error("Gemini Error:", err);
     return reply.status(500).send({
       error: "AI request failed",
       categories: []

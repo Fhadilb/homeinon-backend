@@ -1,7 +1,7 @@
 {
   "name": "homeinon-backend",
   "version": "1.0.0",
-  "type": "commonjs",
+  "type": "module",
   "description": "",
   "main": "app.js",
   "scripts": {
