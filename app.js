@@ -101,23 +101,22 @@ fastify.get("/products", async () => ({ products }));
 /* ----------------------------------------------------
    ⭐ GEMINI AI ENDPOINT
 ---------------------------------------------------- */
-fastify.post("/ai-gemini", async (req, reply) => {
+fastify.post("/ai-suggest", async (req, reply) => {
   const userQuery = req.body.query || "";
-
   if (!userQuery) return reply.send({ categories: [] });
 
   try {
-const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash"
-});
-
+    // Re-use the Gemini code from /ai-gemini
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash"
+    });
 
     const prompt = `
-You are an interior design engine.
-User request: "${userQuery}"
+User interior design request:
+"${userQuery}"
 
-Return ONLY valid JSON like this:
-{ "categories": ["bed", "wardrobe"] }
+Return ONLY JSON:
+{ "categories": ["bed","wardrobe"] }
 `;
 
     const result = await model.generateContent(prompt);
@@ -126,12 +125,11 @@ Return ONLY valid JSON like this:
     let json;
     try {
       json = JSON.parse(text);
-    } catch (e) {
+    } catch {
       json = { categories: [] };
     }
 
     return reply.send(json);
-
   } catch (err) {
     console.error("Gemini AI Error:", err);
     return reply.status(500).send({
@@ -140,7 +138,6 @@ Return ONLY valid JSON like this:
     });
   }
 });
-
 
 
 /* ----------------------------------------------------
