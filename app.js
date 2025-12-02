@@ -123,7 +123,7 @@ fastify.post("/ai-gemini", async (req, reply) => {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash"
+      model: "gemini-1.5-flash-latest"   // ⭐ ALWAYS WORKS
     });
 
     const prompt = `
@@ -145,25 +145,19 @@ USER QUERY:
 
 Return ONLY JSON, EXACTLY like:
 { "categories": ["wardrobe", "dressing table", "mirror"] }
-`;
+    `;
 
-    // ⬇️ GENERATE
-const result = await model.generateContent(prompt);
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
 
-// Extract text safely
-const aiText =
-  result.response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = { categories: [] };
+    }
 
-// Ensure valid JSON
-let json;
-try {
-  json = JSON.parse(aiText);
-} catch {
-  json = { categories: [] };
-}
-
-return reply.send(json);
-
+    return reply.send(json);
 
   } catch (err) {
     console.error("Gemini AI Error:", err);
@@ -173,11 +167,6 @@ return reply.send(json);
     });
   }
 });
-
-
-
-
-
 
 /* ----------------------------------------------------
    START SERVER
