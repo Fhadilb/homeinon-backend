@@ -174,28 +174,64 @@ fastify.post("/ai-gemini", async (req, reply) => {
       throw new Error("GEMINI_API_KEY is missing");
     }
 
-    // ✅ Correct Google model endpoint
-    const url =
-      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+// ✅ Correct Google model endpoint
+const url =
+  `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
-    const prompt = `
-You are an expert interior-design classifier.
+// ⭐ STRONGER, STRICT, ROOM-AWARE CLASSIFIER PROMPT
+const prompt = `
+You are a strict furniture-category classifier.  
+Your job is to extract ONLY valid categories from the list below.
 
-Extract ONLY furniture categories mentioned by the user.
-Return exactly this format:
+VALID CATEGORIES:
+[
+  "bed", "wardrobe", "dressing table", "drawer", "bedside table",
+  "coffee table", "sofa", "mirror", "sideboard", "bench",
+  "dining table", "dining chair", "tv unit", "cabinet", "desk",
+  "armchair", "bookcase"
+]
 
-{ "categories": ["bed", "wardrobe"] }
+SUPPORTED SYNONYMS → CATEGORY MAP:
+- dresser → "sideboard"
+- chest of drawers, drawers → "drawer"
+- nightstand → "bedside table"
+- couch, settee → "sofa"
+- shelves, shelving → "bookcase"
+- tv stand → "tv unit"
+- table for tv → "tv unit"
 
-Query: "${userQuery}"
+SUPPORTED ROOM TYPES (optional):
+["bedroom","living room","dining room","office","hallway","kids room"]
+
+Room-awareness:
+- If the user mentions a room (example: “office desk”), include ONLY categories that belong in that room.
+  Examples:
+  • office → desk, bookcase, cabinet, armchair
+  • bedroom → bed, wardrobe, dressing table, bedside table, drawer, mirror
+  • dining room → dining table, dining chair, sideboard, bench
+  • living room → sofa, coffee table, armchair, tv unit, sideboard, bookcase
+
+RULES:
+- Return ONLY valid categories.
+- NO duplicates.
+- NO "misc".
+- NO hallucinated categories.
+- Output EXACT JSON in this format:
+
+{ "categories": ["desk", "bookcase"] }
+
+USER QUERY:
+"${userQuery}"
 `.trim();
 
-    const payload = {
-      contents: [
-        {
-          parts: [{ text: prompt }]
-        }
-      ]
-    };
+const payload = {
+  contents: [
+    {
+      parts: [{ text: prompt }]
+    }
+  ]
+};
+
 
     const res = await fetch(url, {
       method: "POST",
