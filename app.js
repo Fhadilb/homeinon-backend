@@ -158,9 +158,10 @@ fastify.post("/ai-gemini", async (req, reply) => {
     }
 
     // NOTE: v1 endpoint + gemini-1.5-flash model
-    const url =
-      `https://generativelanguage.googleapis.com/v1/models/` +
-      `gemini-1.5-flash:generateContent?key=${apiKey}`;
+const url =
+  `https://generativelanguage.googleapis.com/v1/models/` +
+  `models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
 
     const prompt = `
 You are an expert interior-design classifier.
