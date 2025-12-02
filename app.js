@@ -10,11 +10,16 @@ const csv = require("csv-parser");
 const path = require("path");
 const fastifyStatic = require("@fastify/static");
 
-// ⭐ GOOGLE GEMINI (CommonJS)
+// Use node-fetch via dynamic import (because v3 is ESM-only)
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
+// ⭐ GOOGLE GEMINI (we will stop using the client below, but leaving this for now)
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // IMPORTANT — must match Render environment key name
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
 
 const fastify = Fastify({ logger: true });
 
@@ -115,13 +120,22 @@ fastify.get("/", async () => ({ message: "HomeInOn API running" }));
 fastify.get("/products", async () => ({ products }));
 
 /* ----------------------------------------------------
-   DEBUG ROUTE — LIST ALL GOOGLE GEMINI MODELS
+   DEBUG ROUTE — LIST GOOGLE GEMINI MODELS VIA HTTP
+   Visit: https://homeinon-backend.onrender.com/ai-models
 ---------------------------------------------------- */
 fastify.get("/ai-models", async (req, reply) => {
   try {
-    const models = await genAI.listModels();
-    console.log("📌 AVAILABLE MODELS:", models);
-    return reply.send(models);
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is missing");
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    console.log("📌 AVAILABLE GEMINI MODELS:", JSON.stringify(data, null, 2));
+    return reply.send(data);
   } catch (err) {
     console.error("❌ MODEL LIST ERROR:", err);
     return reply.status(500).send({ error: "Failed to list models" });
@@ -129,16 +143,22 @@ fastify.get("/ai-models", async (req, reply) => {
 });
 
 /* ----------------------------------------------------
-   ⭐ GEMINI AI ENDPOINT (FINAL WORKING VERSION)
+   ⭐ GEMINI AI ENDPOINT — DIRECT HTTP CALL (NO CLIENT)
 ---------------------------------------------------- */
 fastify.post("/ai-gemini", async (req, reply) => {
-  const userQuery = req.body.query || "";
+  const userQuery = (req.body && req.body.query) || "";
   if (!userQuery) return reply.send({ categories: [] });
 
   try {
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash"   // ✅ SDK v1beta compatible
-    });
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is missing");
+    }
+
+    // NOTE: v1 endpoint + gemini-1.5-flash model
+    const url =
+      `https://generativelanguage.googleapis.com/v1/models/` +
+      `gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     const prompt = `
 You are an expert interior-design classifier.
@@ -146,6 +166,7 @@ You are an expert interior-design classifier.
 TASK:
 - Extract ONLY furniture categories mentioned by the user.
 - Return ONLY a JSON object.
+- If multiple items are mentioned, return ALL.
 
 Valid categories include:
 ["bed", "wardrobe", "dressing table", "drawer", "bedside table",
@@ -158,29 +179,54 @@ USER QUERY:
 
 Return ONLY JSON, EXACTLY like:
 { "categories": ["wardrobe", "dressing table", "mirror"] }
-`;
+    `.trim();
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const payload = {
+      contents: [
+        {
+          parts: [{ text: prompt }]
+        }
+      ]
+    };
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Gemini HTTP error:", res.status, errText);
+      return reply.status(500).send({
+        error: "Gemini API HTTP failed",
+        categories: []
+      });
+    }
+
+    const data = await res.json();
+    const text =
+      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
 
     let json;
     try {
-      json = JSON.parse(text);
-    } catch {
+      json = JSON.parse(
+        text.replace(/^```json\s*/i, "").replace(/```$/i, "").trim()
+      );
+    } catch (e) {
+      console.error("JSON parse error on Gemini text:", text);
       json = { categories: [] };
     }
 
     return reply.send(json);
-
   } catch (err) {
-    console.error("Gemini AI Error:", err);
+    console.error("Gemini AI Error (HTTP):", err);
     return reply.status(500).send({
       error: "Gemini AI failed",
       categories: []
     });
   }
 });
-
 
 /* ----------------------------------------------------
    START SERVER
