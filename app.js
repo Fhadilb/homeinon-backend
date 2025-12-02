@@ -130,7 +130,8 @@ fastify.get("/ai-models", async (req, reply) => {
       throw new Error("GEMINI_API_KEY is missing");
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`;
+    // 👉 IMPORTANT: use v1beta here
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
     const res = await fetch(url);
     const data = await res.json();
 
@@ -141,6 +142,7 @@ fastify.get("/ai-models", async (req, reply) => {
     return reply.status(500).send({ error: "Failed to list models" });
   }
 });
+
 
 /* ----------------------------------------------------
    ⭐ GEMINI AI ENDPOINT — DIRECT HTTP CALL (NO CLIENT)
