@@ -115,7 +115,7 @@ fastify.get("/", async () => ({ message: "HomeInOn API running" }));
 fastify.get("/products", async () => ({ products }));
 
 /* ----------------------------------------------------
-   ⭐ GEMINI AI ENDPOINT
+   ⭐ GEMINI AI ENDPOINT (FINAL WORKING VERSION)
 ---------------------------------------------------- */
 fastify.post("/ai-gemini", async (req, reply) => {
   const userQuery = req.body.query || "";
@@ -124,7 +124,7 @@ fastify.post("/ai-gemini", async (req, reply) => {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-001"  // FINAL + WORKING ON RENDER
+      model: "gemini-1.5-flash"  // ✅ FINAL WORKING MODEL
     });
 
     const prompt = `
@@ -155,6 +155,7 @@ Return ONLY JSON:
     });
   }
 });
+
 
 
 
