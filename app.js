@@ -174,33 +174,20 @@ fastify.post("/ai-gemini", async (req, reply) => {
       throw new Error("GEMINI_API_KEY is missing");
     }
 
-    // NOTE: v1 endpoint + gemini-1.5-flash model
-// Correct URL — v1 + gemini-2.5-flash
-const url =
-  `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
-
+    // ✅ Correct Google model endpoint
+    const url =
+      `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
 
     const prompt = `
 You are an expert interior-design classifier.
 
-TASK:
-- Extract ONLY furniture categories mentioned by the user.
-- Return ONLY a JSON object.
-- If multiple items are mentioned, return ALL.
+Extract ONLY furniture categories mentioned by the user.
+Return exactly this format:
 
-Valid categories include:
-["bed", "wardrobe", "dressing table", "drawer", "bedside table",
- "coffee table", "sofa", "mirror", "sideboard", "bench",
- "dining table", "dining chair", "tv unit", "cabinet", "desk",
- "armchair", "bookcase"]
+{ "categories": ["bed", "wardrobe"] }
 
-USER QUERY:
-"${userQuery}"
-
-Return ONLY JSON, EXACTLY like:
-{ "categories": ["wardrobe", "dressing table", "mirror"] }
-    `.trim();
+Query: "${userQuery}"
+`.trim();
 
     const payload = {
       contents: [
@@ -226,20 +213,20 @@ Return ONLY JSON, EXACTLY like:
     }
 
     const data = await res.json();
-    const text =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
 
     let json;
     try {
       json = JSON.parse(
         text.replace(/^```json\s*/i, "").replace(/```$/i, "").trim()
       );
-    } catch (e) {
+    } catch (err) {
       console.error("JSON parse error on Gemini text:", text);
       json = { categories: [] };
     }
 
     return reply.send(json);
+
   } catch (err) {
     console.error("Gemini AI Error (HTTP):", err);
     return reply.status(500).send({
@@ -248,6 +235,7 @@ Return ONLY JSON, EXACTLY like:
     });
   }
 });
+
 
 /* ----------------------------------------------------
    START SERVER
