@@ -124,15 +124,15 @@ fastify.post("/ai-gemini", async (req, reply) => {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash"  // ✅ FINAL WORKING MODEL
+      model: "gemini-1.5-flash"  // FINAL WORKING MODEL
     });
 
-const prompt = `
+    const prompt = `
 You are an expert interior-design classifier.
 
 TASK:
-- Extract ONLY furniture categories mentioned by the user.
-- Return ONLY a JSON object.
+- Identify ONLY the furniture categories explicitly mentioned by the user.
+- Return ONLY JSON. No explanation.
 - If multiple items are mentioned, return ALL.
 
 Valid categories include:
@@ -144,10 +144,9 @@ Valid categories include:
 USER QUERY:
 "${userQuery}"
 
-Return ONLY JSON, EXACTLY like:
+Return ONLY JSON in this exact format:
 { "categories": ["wardrobe", "dressing table", "mirror"] }
 `;
-
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
@@ -169,6 +168,7 @@ Return ONLY JSON, EXACTLY like:
     });
   }
 });
+
 
 
 
