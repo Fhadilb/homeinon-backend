@@ -127,13 +127,27 @@ fastify.post("/ai-gemini", async (req, reply) => {
       model: "gemini-1.5-flash"  // ✅ FINAL WORKING MODEL
     });
 
-    const prompt = `
-Extract interior furniture categories from user text.
-User: "${userQuery}"
+const prompt = `
+You are an expert interior-design classifier.
 
-Return ONLY JSON:
-{ "categories": ["bed", "wardrobe"] }
+TASK:
+- Extract ONLY furniture categories mentioned by the user.
+- Return ONLY a JSON object.
+- If multiple items are mentioned, return ALL.
+
+Valid categories include:
+["bed", "wardrobe", "dressing table", "drawer", "bedside table",
+ "coffee table", "sofa", "mirror", "sideboard", "bench",
+ "dining table", "dining chair", "tv unit", "cabinet", "desk",
+ "armchair", "bookcase"]
+
+USER QUERY:
+"${userQuery}"
+
+Return ONLY JSON, EXACTLY like:
+{ "categories": ["wardrobe", "dressing table", "mirror"] }
 `;
+
 
     const result = await model.generateContent(prompt);
     const text = result.response.text();
