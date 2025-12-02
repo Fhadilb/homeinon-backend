@@ -24,6 +24,23 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const fastify = Fastify({ logger: true });
 
 /* ----------------------------------------------------
+   FIX: JSON BODY PARSER (REQUIRED FOR RENDER)
+---------------------------------------------------- */
+fastify.addContentTypeParser(
+  "application/json",
+  { parseAs: "string" },
+  function (_, body, done) {
+    try {
+      const json = JSON.parse(body);
+      done(null, json);
+    } catch (err) {
+      done(err, undefined);
+    }
+  }
+);
+
+
+/* ----------------------------------------------------
    CORS
 ---------------------------------------------------- */
 fastify.register(cors, {
