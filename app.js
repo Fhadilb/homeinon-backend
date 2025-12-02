@@ -115,6 +115,20 @@ fastify.get("/", async () => ({ message: "HomeInOn API running" }));
 fastify.get("/products", async () => ({ products }));
 
 /* ----------------------------------------------------
+   DEBUG ROUTE — LIST ALL GOOGLE GEMINI MODELS
+---------------------------------------------------- */
+fastify.get("/ai-models", async (req, reply) => {
+  try {
+    const models = await genAI.listModels();
+    console.log("📌 AVAILABLE MODELS:", models);
+    return reply.send(models);
+  } catch (err) {
+    console.error("❌ MODEL LIST ERROR:", err);
+    return reply.status(500).send({ error: "Failed to list models" });
+  }
+});
+
+/* ----------------------------------------------------
    ⭐ GEMINI AI ENDPOINT (FINAL WORKING VERSION)
 ---------------------------------------------------- */
 fastify.post("/ai-gemini", async (req, reply) => {
