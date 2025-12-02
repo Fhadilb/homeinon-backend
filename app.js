@@ -119,20 +119,19 @@ fastify.get("/products", async () => ({ products }));
 ---------------------------------------------------- */
 fastify.post("/ai-gemini", async (req, reply) => {
   const userQuery = req.body.query || "";
-
   if (!userQuery) return reply.send({ categories: [] });
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash"  // FINAL WORKING MODEL
+      model: "gemini-1.5-flash"
     });
 
     const prompt = `
 You are an expert interior-design classifier.
 
 TASK:
-- Identify ONLY the furniture categories explicitly mentioned by the user.
-- Return ONLY JSON. No explanation.
+- Extract ONLY furniture categories mentioned by the user.
+- Return ONLY a JSON object.
 - If multiple items are mentioned, return ALL.
 
 Valid categories include:
@@ -144,21 +143,27 @@ Valid categories include:
 USER QUERY:
 "${userQuery}"
 
-Return ONLY JSON in this exact format:
+Return ONLY JSON, EXACTLY like:
 { "categories": ["wardrobe", "dressing table", "mirror"] }
 `;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    // ⬇️ GENERATE
+const result = await model.generateContent(prompt);
 
-    let json;
-    try {
-      json = JSON.parse(text);
-    } catch {
-      json = { categories: [] };
-    }
+// Extract text safely
+const aiText =
+  result.response.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    return reply.send(json);
+// Ensure valid JSON
+let json;
+try {
+  json = JSON.parse(aiText);
+} catch {
+  json = { categories: [] };
+}
+
+return reply.send(json);
+
 
   } catch (err) {
     console.error("Gemini AI Error:", err);
@@ -168,6 +173,7 @@ Return ONLY JSON in this exact format:
     });
   }
 });
+
 
 
 
