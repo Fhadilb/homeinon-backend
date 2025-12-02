@@ -123,7 +123,7 @@ fastify.post("/ai-gemini", async (req, reply) => {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash-001"   // ✅ SDK v1beta compatible
+      model: "gemini-1.5-flash"   // ✅ SDK v1beta compatible
     });
 
     const prompt = `
