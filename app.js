@@ -162,11 +162,48 @@ fastify.get("/ai-models", async (req, reply) => {
 
 
 /* ----------------------------------------------------
-   ⭐ GEMINI AI ENDPOINT — DIRECT HTTP CALL (NO CLIENT)
+   ⭐ GEMINI AI ENDPOINT — USING EXISTING CLIENT
 ---------------------------------------------------- */
+
+// Add this helper function before your route
+function fallbackCategoryExtraction(query) {
+  const lowerQuery = query.toLowerCase();
+  const categoryMap = {
+    bed: /\b(bed|beds)\b/,
+    wardrobe: /\b(wardrobe|wardrobes|closet)\b/,
+    sofa: /\b(sofa|sofas|couch|settee)\b/,
+    desk: /\b(desk|desks)\b/,
+    "dining table": /\b(dining table|dining tables)\b/,
+    "coffee table": /\b(coffee table|coffee tables)\b/,
+    mirror: /\b(mirror|mirrors)\b/,
+    bookcase: /\b(bookcase|bookcases|shelves|shelving)\b/,
+    drawer: /\b(drawer|drawers|chest of drawers)\b/,
+    cabinet: /\b(cabinet|cabinets)\b/,
+    "tv unit": /\b(tv unit|tv stand|tv units)\b/,
+    "bedside table": /\b(bedside table|nightstand)\b/,
+    "dining chair": /\b(dining chair|dining chairs)\b/,
+    armchair: /\b(armchair|armchairs)\b/
+  };
+
+  const detected = [];
+  for (const [category, regex] of Object.entries(categoryMap)) {
+    if (regex.test(lowerQuery)) {
+      detected.push(category);
+    }
+  }
+
+  return detected.length > 0 ? detected : ["sofa", "bed", "dining table"];
+}
+
 fastify.post("/ai-gemini", async (req, reply) => {
   const userQuery = (req.body && req.body.query) || "";
-  if (!userQuery) return reply.send({ categories: [] });
+  if (!userQuery) {
+    return reply.send({ 
+      categories: [], 
+      room: null, 
+      confidence: "none" 
+    });
+  }
 
   try {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -174,103 +211,147 @@ fastify.post("/ai-gemini", async (req, reply) => {
       throw new Error("GEMINI_API_KEY is missing");
     }
 
-// ✅ Correct Google model endpoint
-const url =
-  `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-
-// ⭐ STRONGER, STRICT, ROOM-AWARE CLASSIFIER PROMPT
-const prompt = `
-You are a strict furniture-category classifier.  
-Your job is to extract ONLY valid categories from the list below.
-
-VALID CATEGORIES:
-[
-  "bed", "wardrobe", "dressing table", "drawer", "bedside table",
-  "coffee table", "sofa", "mirror", "sideboard", "bench",
-  "dining table", "dining chair", "tv unit", "cabinet", "desk",
-  "armchair", "bookcase"
-]
-
-SUPPORTED SYNONYMS → CATEGORY MAP:
-- dresser → "sideboard"
-- chest of drawers, drawers → "drawer"
-- nightstand → "bedside table"
-- couch, settee → "sofa"
-- shelves, shelving → "bookcase"
-- tv stand → "tv unit"
-- table for tv → "tv unit"
-
-SUPPORTED ROOM TYPES (optional):
-["bedroom","living room","dining room","office","hallway","kids room"]
-
-Room-awareness:
-- If the user mentions a room (example: “office desk”), include ONLY categories that belong in that room.
-  Examples:
-  • office → desk, bookcase, cabinet, armchair
-  • bedroom → bed, wardrobe, dressing table, bedside table, drawer, mirror
-  • dining room → dining table, dining chair, sideboard, bench
-  • living room → sofa, coffee table, armchair, tv unit, sideboard, bookcase
-
-RULES:
-- Return ONLY valid categories.
-- NO duplicates.
-- NO "misc".
-- NO hallucinated categories.
-- Output EXACT JSON in this format:
-
-{ "categories": ["desk", "bookcase"] }
-
-USER QUERY:
-"${userQuery}"
-`.trim();
-
-const payload = {
-  contents: [
-    {
-      parts: [{ text: prompt }]
-    }
-  ]
-};
-
-
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
+    // Use the existing GoogleGenerativeAI client
+    const model = genAI.getGenerativeModel({ 
+      model: "gemini-1.5-flash",
+      generationConfig: {
+        temperature: 0.1,
+        topK: 1,
+        topP: 0.8,
+        maxOutputTokens: 256,
+      }
     });
 
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Gemini HTTP error:", res.status, errText);
-      return reply.status(500).send({
-        error: "Gemini API HTTP failed",
-        categories: []
-      });
-    }
+    const prompt = `
+You are a precise furniture category classifier for an e-commerce product database.
 
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+USER QUERY: "${userQuery}"
+
+TASK: Extract furniture categories and optional room type from the user's query.
+
+VALID CATEGORIES (return ONLY from this list):
+- bed, wardrobe, dressing table, drawer, bedside table
+- coffee table, sofa, mirror, sideboard, bench
+- dining table, dining chair, tv unit, cabinet, desk
+- armchair, bookcase
+
+SYNONYM MAPPINGS (auto-convert these):
+- "dresser" OR "chest" → "sideboard"
+- "chest of drawers" OR "drawers" → "drawer"
+- "nightstand" → "bedside table"
+- "couch" OR "settee" → "sofa"
+- "shelves" OR "shelving" → "bookcase"
+- "tv stand" → "tv unit"
+
+ROOM FILTERING (if user mentions a room):
+- bedroom: bed, wardrobe, dressing table, bedside table, drawer, mirror
+- living room: sofa, coffee table, armchair, tv unit, sideboard, bookcase, mirror
+- dining room: dining table, dining chair, sideboard, bench, cabinet
+- office: desk, bookcase, cabinet, armchair
+- hallway: mirror, bench, cabinet
+
+STRICT RULES:
+1. Return ONLY categories that match the user's intent
+2. If a room is mentioned, filter categories to room-appropriate items
+3. NO duplicates, NO invalid categories
+4. If ambiguous, return most likely 2-3 categories max
+5. Return valid JSON ONLY, no markdown
+
+OUTPUT FORMAT:
+{
+  "categories": ["category1", "category2"],
+  "room": "bedroom",
+  "confidence": "high"
+}
+
+EXAMPLES:
+Query: "I need furniture for my office under £1000"
+Output: {"categories": ["desk", "bookcase", "cabinet"], "room": "office", "confidence": "high"}
+
+Query: "blue bedroom furniture"
+Output: {"categories": ["bed", "wardrobe", "bedside table"], "room": "bedroom", "confidence": "medium"}
+
+Query: "sofa"
+Output: {"categories": ["sofa"], "room": null, "confidence": "high"}
+
+Now process the user query above. Return ONLY the JSON object, no markdown blocks.
+`.trim();
+
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text().trim();
+
+    console.log("🤖 Gemini raw response:", text);
+
+    // Clean response (remove markdown code blocks)
+    const cleanText = text
+      .replace(/^```json\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```$/i, "")
+      .trim();
 
     let json;
     try {
-      json = JSON.parse(
-        text.replace(/^```json\s*/i, "").replace(/```$/i, "").trim()
+      json = JSON.parse(cleanText);
+      
+      // Validate response structure
+      if (!json.categories || !Array.isArray(json.categories)) {
+        throw new Error("Invalid response structure");
+      }
+
+      // Ensure categories are valid
+      const validCategories = [
+        "bed", "wardrobe", "dressing table", "drawer", "bedside table",
+        "coffee table", "sofa", "mirror", "sideboard", "bench",
+        "dining table", "dining chair", "tv unit", "cabinet", "desk",
+        "armchair", "bookcase"
+      ];
+
+      json.categories = json.categories.filter(cat => 
+        validCategories.includes(cat.toLowerCase())
       );
-    } catch (err) {
-      console.error("JSON parse error on Gemini text:", text);
-      json = { categories: [] };
+
+      // If AI returned nothing valid, use fallback
+      if (json.categories.length === 0) {
+        console.log("⚠️ AI returned no valid categories, using fallback");
+        json.categories = fallbackCategoryExtraction(userQuery);
+        json.confidence = "fallback";
+        json.source = "keyword_matching";
+      }
+
+      console.log("✅ Final response:", json);
+      return reply.send(json);
+
+    } catch (parseErr) {
+      console.error("❌ JSON parse error. Raw text:", text);
+      console.error("Parse error details:", parseErr.message);
+      
+      // Fallback to keyword matching
+      const fallbackCategories = fallbackCategoryExtraction(userQuery);
+      return reply.send({
+        categories: fallbackCategories,
+        room: null,
+        confidence: "fallback",
+        source: "keyword_matching",
+        debug: { rawText: text, error: parseErr.message }
+      });
     }
 
-    return reply.send(json);
-
   } catch (err) {
-    console.error("Gemini AI Error (HTTP):", err);
-    return reply.status(500).send({
-      error: "Gemini AI failed",
-      categories: []
+    console.error("❌ Gemini AI Error:", err);
+    
+    // Final fallback
+    const fallbackCategories = fallbackCategoryExtraction(userQuery);
+    return reply.send({
+      categories: fallbackCategories,
+      room: null,
+      confidence: "fallback",
+      source: "keyword_matching",
+      error: err.message
     });
   }
 });
+
 
 
 /* ----------------------------------------------------
